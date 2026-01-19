@@ -832,11 +832,11 @@
             ws['!cols'] = colWidths;
             
             // Add worksheet to workbook
-            XLSX.utils.book_append_sheet(wb, ws, "Billing Data");
+            XLSX.utils.book_append_sheet(wb, ws, "Loading Bill");
             
             // Generate file name with timestamp
-            const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const fileName = `billing_data_${timestamp}.xlsx`;
+            // const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const fileName = `Loading_bill_1770143.xlsx`;
             
             // Save file
             XLSX.writeFile(wb, fileName);
@@ -897,4 +897,5 @@
                     }
                 }, 400);
             }, 4000);
+
         }
