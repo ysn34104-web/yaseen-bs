@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yaseen Billing System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+        
+    <!-- Multiple sizes (recommended) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-removebg-preview.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-removebg-preview.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icon-removebg-preview.png">
+</head>
+<body>
+    <header>
+        <h1><i class="fas fa-file-invoice-dollar"></i> Yaseen Billing System</h1>
+        <p>Manual date control - You control when to advance the date</p>
+    </header>
+
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+        <div class="step">
+            <div class="step-circle" id="step1">1</div>
+            <div class="step-label" id="step1Label">Set Entries</div>
+        </div>
+        <div class="step">
+            <div class="step-circle" id="step2">2</div>
+            <div class="step-label" id="step2Label">Set Date</div>
+        </div>
+        <div class="step">
+            <div class="step-circle" id="step3">3</div>
+            <div class="step-label" id="step3Label">Add Entries</div>
+        </div>
+        <div class="step">
+            <div class="step-circle" id="step4">4</div>
+            <div class="step-label" id="step4Label">Export</div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <div class="status-value" id="totalEntriesValue">0</div>
+            <div class="status-label">Total Entries</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="currentEntryValue">0</div>
+            <div class="status-label">Current Entry</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="remainingEntriesValue">0</div>
+            <div class="status-label">Remaining</div>
+        </div>
+    </div>
+
+    <!-- STEP WINDOWS -->
+    <!-- Step 1 Window: Entries Setup -->
+    <div class="window-overlay" id="windowOverlay"></div>
+    
+    <div class="step-window" id="step1Window">
+        <div class="window-header">
+            <h2><i class="fas fa-cog"></i> Step 1: Setup Entries</h2>
+            <button class="window-close" onclick="closeWindow('step1Window')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <label for="totalEntriesInput">How many entries do you need?</label>
+            <div class="input-row">
+                <input type="number" id="totalEntriesInput" placeholder="Enter total number of entries" min="1" max="100" autofocus>
+                <button class="btn btn-primary" onclick="setEntries()">
+                    <i class="fas fa-check"></i> Set Entries & Continue
+                </button>
+            </div>
+        </div>
+        <div class="rate-info">
+            <div class="rate-item">
+                <div class="rate-value">Rs.12</div>
+                <div class="rate-label">Per Drum</div>
+            </div>
+            <div class="rate-item">
+                <div class="rate-value">Rs.8</div>
+                <div class="rate-label">Per Bag</div>
+            </div>
+        </div>
+        <div class="btn-group" style="justify-content: center; margin-top: 30px;">
+            <button class="btn btn-secondary" onclick="closeWindow('step1Window')">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+    
+    <!-- Step 2 Window: Date Setup -->
+    <div class="step-window" id="step2Window">
+        <div class="window-header">
+            <h2><i class="far fa-calendar-alt"></i> Step 2: Set Initial Date</h2>
+            <button class="window-close" onclick="closeWindow('step2Window')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="form-group">
+            <label>Enter Starting Date</label>
+            <div class="input-row">
+                <input type="number" id="dayInput" placeholder="Day" min="1" max="31" autofocus>
+                <input type="number" id="monthInput" placeholder="Month" min="1" max="12">
+                <input type="number" id="yearInput" placeholder="Year" min="2023" max="2030">
+                <button class="btn btn-primary" onclick="saveDate()">
+                    <i class="fas fa-save"></i> Save Date & Continue
+                </button>
+            </div>
+        </div>
+        <div class="btn-group" style="justify-content: center; margin-top: 30px;">
+            <button class="btn btn-secondary" onclick="closeWindow('step2Window')">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+        </div>
+    </div>
+    
+    <!-- Step 3 Window: Add Entry -->
+    <div class="step-window" id="step3Window">
+        <div class="window-header">
+            <h2><i class="fas fa-plus-circle"></i> Step 3: Add New Entry</h2>
+            <button class="window-close" onclick="closeWindow('step3Window')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="container" style="grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 0;">
+            <!-- LEFT COLUMN: Date Control & Items -->
+            <div>
+                <!-- Date Control -->
+                <div class="card" style="margin-bottom: 25px;">
+                    <h3><i class="fas fa-calendar-week"></i> Date Control</h3>
+                    <div class="date-display active" id="windowDateDisplay">
+                        Current Date: <span id="currentDateText">Not Set</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Control the date manually:</label>
+                        <div class="btn-group" style="justify-content: center; margin-top: 20px;">
+                            <button class="btn btn-secondary" onclick="useSameDate()">
+                                <i class="fas fa-redo"></i> Same Date
+                            </button>
+                            <button class="btn btn-secondary" onclick="useNextDate()">
+                                <i class="fas fa-forward"></i> Next Date
+                            </button>
+                            <button class="btn btn-secondary" onclick="usePreviousDate()">
+                                <i class="fas fa-backward"></i> Previous Date
+                            </button>
+                        </div>
+                        
+                        <div class="input-row" style="margin-top: 15px;">
+                            <input type="number" id="customDayInput" placeholder="Custom Day" min="1" max="31">
+                            <button class="btn btn-secondary" onclick="useCustomDate()">
+                                <i class="fas fa-calendar-day"></i> Set Custom Day
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="auto-advance-notice">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Date will NOT auto-advance. You control when to change date.</span>
+                    </div>
+                </div>
+                
+                <!-- Items Entry -->
+                <div class="card">
+                    <h3><i class="fas fa-boxes"></i> Items Entry</h3>
+                    <div class="form-group">
+                        <label for="drumsInputWindow">Number of Drums</label>
+                        <input type="number" id="drumsInputWindow" placeholder="Enter drums quantity" min="0" autofocus>
+                    </div>
+                    <div class="form-group">
+                        <label for="bagsInputWindow">Number of Bags</label>
+                        <input type="number" id="bagsInputWindow" placeholder="Enter bags quantity" min="0">
+                    </div>
+                    <div class="form-group">
+                        <div id="totalCalculationWindow" style="padding: 18px; background: linear-gradient(135deg, var(--light-color), #FFF5E6); border-radius: var(--border-radius); display: none; border: 2px solid var(--primary-color);">
+                            <strong style="color: var(--dark-color); font-size: 1.1rem;">Total Calculation:</strong>
+                            <div id="calculationDetailsWindow" style="margin-top: 10px; font-size: 1.05rem; line-height: 1.8;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- RIGHT COLUMN: Persons Selection -->
+            <div>
+                <div class="card">
+                    <h3><i class="fas fa-users"></i> Divide Among Persons</h3>
+                    <p style="margin-bottom: 15px; color: var(--dark-color); font-weight: 600; font-size: 1.05rem;">Select the persons to divide the amount:</p>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="adCheckboxWindow">
+                            <label for="adCheckboxWindow">A. Ditta</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="ayCheckboxWindow">
+                            <label for="ayCheckboxWindow">A. Yar</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="saCheckboxWindow">
+                            <label for="saCheckboxWindow">Saleem</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="naCheckboxWindow">
+                            <label for="naCheckboxWindow">Nazir</label>
+                        </div>
+                    </div>
+                    <div class="btn-group" style="margin-top: 25px;">
+                        <button class="btn btn-primary" onclick="selectAllPersonsWindow()">
+                            <i class="fas fa-check-square"></i> Select All
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearAllPersonsWindow()">
+                            <i class="far fa-square"></i> Clear All
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons in Window -->
+                <div class="card" style="margin-top: 25px;">
+                    <h3><i class="fas fa-play-circle"></i> Actions</h3>
+                    <div class="btn-group" style="flex-direction: column; gap: 15px;">
+                        <button class="btn btn-success" onclick="addEntryFromWindow()" style="padding: 18px; font-size: 1.1rem; font-weight: 700;" id="addEntryWindowBtn">
+                            <i class="fas fa-plus-circle"></i> Add Entry
+                        </button>
+                        <button class="btn btn-warning" onclick="resetCurrentEntryWindow()" style="padding: 18px; font-size: 1.1rem; font-weight: 700;">
+                            <i class="fas fa-redo"></i> Reset Form
+                        </button>
+                        <button class="btn btn-secondary" onclick="closeWindow('step3Window')" style="padding: 18px; font-size: 1.1rem; font-weight: 700;">
+                            <i class="fas fa-times"></i> Close Window
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="container">
+        <!-- LEFT COLUMN -->
+        <div class="left-column">
+            <!-- CONTROL PANEL CARD -->
+            <div class="card">
+                <h2><i class="fas fa-tasks"></i> Control Panel</h2>
+                <div class="btn-group" style="flex-direction: column; gap: 15px;">
+                    <button class="btn btn-primary" onclick="openWindow('step1Window')">
+                        <i class="fas fa-cog"></i> Step 1: Setup Entries
+                    </button>
+                    <button class="btn btn-primary" id="step2Btn" disabled onclick="openWindow('step2Window')">
+                        <i class="far fa-calendar-alt"></i> Step 2: Set Date
+                    </button>
+                    <button class="btn btn-primary" id="step3Btn" disabled onclick="openWindow('step3Window')">
+                        <i class="fas fa-plus-circle"></i> Step 3: Add Entry
+                    </button>
+                    <button class="btn btn-success" onclick="generateExcel()" id="generateExcelBtn">
+                        <i class="fas fa-file-excel"></i> Step 4: Export Excel
+                    </button>
+                </div>
+            </div>
+            
+            <!-- QUICK ADD CARD (Optional, for quick addition without opening window) -->
+            <div class="card" id="quickAddCard" style="display: none;">
+                <h2><i class="fas fa-bolt"></i> Quick Add Entry</h2>
+                <div class="form-group">
+                    <label for="quickDrums">Drums</label>
+                    <input type="number" id="quickDrums" placeholder="Drums" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="quickBags">Bags</label>
+                    <input type="number" id="quickBags" placeholder="Bags" min="0">
+                </div>
+                <button class="btn btn-success" onclick="quickAddEntry()" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Quick Add
+                </button>
+                <p style="margin-top: 15px; font-size: 0.9rem; color: var(--gray-color); text-align: center;">
+                    <i class="fas fa-info-circle"></i> Uses current date and all persons selected
+                </p>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="right-column">
+            <!-- ENTRIES SUMMARY -->
+            <div class="card">
+                <h2><i class="fas fa-list"></i> Entries Summary</h2>
+                <div id="entriesTableContainer">
+                    <div class="empty-state" id="emptyEntriesMessage">
+                        <i class="fas fa-clipboard-list"></i>
+                        <h3>No entries yet</h3>
+                        <p>Add your first entry to see the summary here</p>
+                    </div>
+                    <table class="entries-table" id="entriesTable" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Drums</th>
+                                <th>Bags</th>
+                                <th>Total (Rs)</th>
+                                <th>Persons</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="entriesTableBody">
+                            <!-- Entries will be added here dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TOTAL SUMMARY -->
+            <div class="card">
+                <h2><i class="fas fa-chart-bar"></i> Total Summary</h2>
+                <div class="summary-card" id="summaryCard" style="display: none;">
+                    <div class="summary-content" id="summaryContent">
+                        <!-- Summary will be added here dynamically -->
+                    </div>
+                </div>
+                <div id="emptySummaryMessage" style="text-align: center; padding: 30px; color: var(--gray-color);">
+                    <i class="fas fa-chart-pie" style="font-size: 3rem; opacity: 0.5; margin-bottom: 15px;"></i>
+                    <h3 style="color: var(--dark-color); margin-bottom: 10px;">No Summary Yet</h3>
+                    <p>Add entries to see summary here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Yaseen Billing System &copy; <span id="currentYear"></span> | Made With 💖 By Yaseen Shahid</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
