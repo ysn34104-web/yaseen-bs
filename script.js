@@ -835,8 +835,8 @@
             XLSX.utils.book_append_sheet(wb, ws, "Loading Bill");
             
             // Generate file name with timestamp
-            // const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-            const fileName = `Loading_bill_1770143.xlsx`;
+            let num = Math.floor(Math.random() * 900) + 100;
+            const fileName = `Loading_bill_created_by_yaseen_web_serial_${num}.xlsx`;
             
             // Save file
             XLSX.writeFile(wb, fileName);
