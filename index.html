@@ -119,7 +119,7 @@
     </div>
     
     <!-- Step 3 Window: Add Entry -->
-    <div class="step-window" id="step3Window">
+    <div class="step-window step3-screen" id="step3Window">
         <div class="window-header">
             <h2><i class="fas fa-plus-circle"></i> Step 3: Add New Entry</h2>
             <button class="window-close" onclick="closeWindow('step3Window')">
@@ -140,9 +140,6 @@
                     <div class="form-group">
                         <label>Control the date manually:</label>
                         <div class="btn-group" style="justify-content: center; margin-top: 20px;">
-                            <button class="btn btn-secondary" onclick="useSameDate()">
-                                <i class="fas fa-redo"></i> Same Date
-                            </button>
                             <button class="btn btn-secondary" onclick="useNextDate()">
                                 <i class="fas fa-forward"></i> Next Date
                             </button>
@@ -207,6 +204,10 @@
                             <input type="checkbox" id="naCheckboxWindow">
                             <label for="naCheckboxWindow">Nazir</label>
                         </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="waCheckboxWindow">
+                            <label for="waCheckboxWindow">Waseem</label>
+                        </div>
                     </div>
                     <div class="btn-group" style="margin-top: 25px;">
                         <button class="btn btn-primary" onclick="selectAllPersonsWindow()">
@@ -214,6 +215,9 @@
                         </button>
                         <button class="btn btn-secondary" onclick="clearAllPersonsWindow()">
                             <i class="far fa-square"></i> Clear All
+                        </button>
+                        <button class="btn btn-secondary" onclick="selectThreePersonsWindow()">
+                            <i class="fas fa-user-friends"></i> Select Nazir, Waseem &amp; Saleem
                         </button>
                     </div>
                 </div>
