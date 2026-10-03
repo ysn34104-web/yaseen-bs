@@ -10,14 +10,19 @@
         let excelData = [
             ["Date", "Drums", "Bags", "Total (Rs)", "A.Ditta", "A.Yar", "Saleem", "Nazir", "Waseem"]
         ];
+        let backupDocument = null;
+        let backupWriteQueue = Promise.resolve();
+        let backupReady = false;
         
         // Variable to track entry being edited
         let editingIndex = -1;
         
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Set current year in footer
             document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+            await initializeFirebaseBackup();
             
             // Initialize status bar
             updateStatusBar();
@@ -28,6 +33,147 @@
             // Setup auto-focus for inputs
             setupAutoFocus();
         });
+
+        async function initializeFirebaseBackup() {
+            try {
+                if (!window.firebase) {
+                    throw new Error("Firebase SDK could not be loaded. Check your internet connection.");
+                }
+
+                const firebaseConfig = {
+                    apiKey: "AIzaSyCuJpdRvOed7jZOu2sIHIVEJ3Ay7mZEgjU",
+                    authDomain: "login-check-b8ea2.firebaseapp.com",
+                    projectId: "login-check-b8ea2",
+                    storageBucket: "login-check-b8ea2.firebasestorage.app",
+                    messagingSenderId: "651024024981",
+                    appId: "1:651024024981:web:73d7c14ae54435d014e29c",
+                    measurementId: "G-354VY177SB"
+                };
+
+                const app = firebase.apps.length
+                    ? firebase.app()
+                    : firebase.initializeApp(firebaseConfig);
+                backupDocument = app.firestore().collection("billingBackups").doc("active");
+
+                const backupSnapshot = await backupDocument.get();
+                if (backupSnapshot.exists) {
+                    restoreBackup(backupSnapshot.data());
+                    showNotification("Previous billing data restored from Firebase.", "success");
+                }
+            } catch (error) {
+                backupDocument = null;
+                showNotification(`Firebase backup could not be loaded: ${error.message}`, "error");
+            } finally {
+                backupReady = true;
+            }
+        }
+
+        function ensureBackupReady() {
+            if (!backupReady) {
+                showNotification("Firebase is still loading. Please try again in a moment.", "info");
+                return false;
+            }
+            return true;
+        }
+
+        function restoreBackup(backup) {
+            if (!backup || !Array.isArray(backup.entries) ||
+                typeof backup.totalEntries !== "number" ||
+                typeof backup.currentEntry !== "number" ||
+                backup.totalEntries < 0 ||
+                backup.currentEntry < 0 ||
+                !backup.entries.every(entry =>
+                    entry &&
+                    typeof entry.date === "string" &&
+                    /^\d{1,2}-(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{4}$/.test(entry.date) &&
+                    typeof entry.drums === "number" &&
+                    typeof entry.bags === "number" &&
+                    typeof entry.total === "number" &&
+                    Array.isArray(entry.persons) &&
+                    entry.persons.every(person =>
+                        ["A.Ditta", "A.Yar", "Saleem", "Nazir", "Waseem"].includes(person)) &&
+                    typeof entry.ad === "string" &&
+                    typeof entry.ay === "string" &&
+                    typeof entry.sa === "string" &&
+                    typeof entry.na === "string" &&
+                    typeof entry.wa === "string") ||
+                (backup.currentDate !== null &&
+                    (!backup.currentDate ||
+                        typeof backup.currentDate.day !== "number" ||
+                        typeof backup.currentDate.month !== "number" ||
+                        typeof backup.currentDate.year !== "number" ||
+                        backup.currentDate.day < 1 ||
+                        backup.currentDate.day > 31 ||
+                        backup.currentDate.month < 1 ||
+                        backup.currentDate.month > 12))) {
+                throw new Error("The saved billing backup has an invalid format.");
+            }
+
+            entries = backup.entries;
+            totalEntries = backup.totalEntries;
+            currentEntry = backup.currentEntry;
+            currentDate = backup.currentDate;
+            excelData = [
+                ["Date", "Drums", "Bags", "Total (Rs)", "A.Ditta", "A.Yar", "Saleem", "Nazir", "Waseem"],
+                ...entries.map(entry => [
+                    entry.date, entry.drums, entry.bags, entry.total,
+                    entry.ad, entry.ay, entry.sa, entry.na, entry.wa
+                ])
+            ];
+            updateStatusBar();
+            updateEntriesTable();
+            updateSummary();
+            updateStepIndicator();
+            updateButtonStates();
+            if (currentDate) {
+                updateDateDisplayWindow();
+            }
+        }
+
+        function saveBackup() {
+            if (!backupDocument) {
+                showNotification("Firebase backup is unavailable. Check Firebase setup and Firestore access rules.", "error");
+                return Promise.resolve(false);
+            }
+
+            const backup = {
+                entries: entries.map(entry => ({
+                    ...entry,
+                    persons: [...entry.persons]
+                })),
+                totalEntries,
+                currentEntry,
+                currentDate: currentDate ? { ...currentDate } : null
+            };
+
+            backupWriteQueue = backupWriteQueue.then(async function() {
+                try {
+                    await backupDocument.set(backup);
+                    return true;
+                } catch (error) {
+                    showNotification(`Firebase backup could not be saved: ${error.message}`, "error");
+                    return false;
+                }
+            });
+
+            return backupWriteQueue;
+        }
+
+        async function clearBackup() {
+            if (!backupDocument) {
+                showNotification("Excel was generated, but Firebase backup could not be cleared because Firebase is unavailable.", "error");
+                return false;
+            }
+
+            await backupWriteQueue;
+            try {
+                await backupDocument.delete();
+                return true;
+            } catch (error) {
+                showNotification(`Excel was generated, but Firebase backup could not be cleared: ${error.message}`, "error");
+                return false;
+            }
+        }
         
         // Setup auto-focus functionality
         function setupAutoFocus() {
@@ -223,7 +369,9 @@
         }
         
         // Set entries count - STEP 1
-        function setEntries() {
+        async function setEntries() {
+            if (!ensureBackupReady()) return;
+
             const entriesInput = document.getElementById('totalEntriesInput').value;
             totalEntries = parseInt(entriesInput);
             
@@ -237,6 +385,7 @@
             updateStatusBar();
             updateEntriesTable();
             updateSummary();
+            const backupSaved = await saveBackup();
             
             // Close window
             closeWindow('step1Window');
@@ -245,11 +394,18 @@
             updateStepIndicator();
             
             // Show success message
-            showNotification(`Set to ${totalEntries} entries. Now set the date.`, 'success');
+            showNotification(
+                backupSaved
+                    ? `Set to ${totalEntries} entries. Now set the date.`
+                    : "Entries set on this device, but Firebase backup failed.",
+                backupSaved ? "success" : "error"
+            );
         }
         
         // Save date - STEP 2
-        function saveDate() {
+        async function saveDate() {
+            if (!ensureBackupReady()) return;
+
             const day = parseInt(document.getElementById('dayInput').value);
             const month = parseInt(document.getElementById('monthInput').value);
             const year = parseInt(document.getElementById('yearInput').value);
@@ -275,6 +431,7 @@
             }
             
             currentDate = { day, month, year };
+            const backupSaved = await saveBackup();
             
             // Close window
             closeWindow('step2Window');
@@ -283,7 +440,12 @@
             updateStepIndicator();
             
             // Show success message
-            showNotification(`Date set to ${day}-${month}-${year}. You can now add entries.`, 'success');
+            showNotification(
+                backupSaved
+                    ? `Date set to ${day}-${month}-${year}. You can now add entries.`
+                    : "Date set on this device, but Firebase backup failed.",
+                backupSaved ? "success" : "error"
+            );
         }
         
         // Update date display in window
@@ -293,11 +455,15 @@
                                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
                 const dateText = `${currentDate.day}-${monthNames[currentDate.month-1]}-${currentDate.year}`;
                 document.getElementById('currentDateText').textContent = dateText;
+            } else {
+                document.getElementById('currentDateText').textContent = 'Not Set';
             }
         }
         
         // Use next date in window
-        function useNextDate() {
+        async function useNextDate() {
+            if (!ensureBackupReady()) return;
+
             if (!currentDate) {
                 showNotification("Please set date first", "error");
                 return;
@@ -316,7 +482,11 @@
             }
             
             updateDateDisplayWindow();
-            showNotification(`Date advanced to next day`, 'info');
+            const backupSaved = await saveBackup();
+            showNotification(
+                backupSaved ? "Date advanced to next day" : "Date advanced locally, but Firebase backup failed.",
+                backupSaved ? "info" : "error"
+            );
             
             // Focus on drums input
             setTimeout(() => {
@@ -325,7 +495,9 @@
         }
         
         // Use previous date in window
-        function usePreviousDate() {
+        async function usePreviousDate() {
+            if (!ensureBackupReady()) return;
+
             if (!currentDate) {
                 showNotification("Please set date first", "error");
                 return;
@@ -344,7 +516,11 @@
             }
             
             updateDateDisplayWindow();
-            showNotification(`Date moved to previous day`, 'info');
+            const backupSaved = await saveBackup();
+            showNotification(
+                backupSaved ? "Date moved to previous day" : "Date moved locally, but Firebase backup failed.",
+                backupSaved ? "info" : "error"
+            );
             
             // Focus on drums input
             setTimeout(() => {
@@ -353,7 +529,9 @@
         }
         
         // Use custom date in window
-        function useCustomDate() {
+        async function useCustomDate() {
+            if (!ensureBackupReady()) return;
+
             if (!currentDate) {
                 showNotification("Please set date first", "error");
                 return;
@@ -367,7 +545,11 @@
             
             currentDate.day = customDay;
             updateDateDisplayWindow();
-            showNotification(`Date changed to day ${customDay}`, 'info');
+            const backupSaved = await saveBackup();
+            showNotification(
+                backupSaved ? `Date changed to day ${customDay}` : "Date changed locally, but Firebase backup failed.",
+                backupSaved ? "info" : "error"
+            );
             
             // Focus on drums input
             setTimeout(() => {
@@ -422,6 +604,7 @@
         
         // Edit an entry
         function editEntry(index) {
+            if (!ensureBackupReady()) return;
             if (index < 0 || index >= entries.length) return;
             
             const entry = entries[index];
@@ -464,7 +647,9 @@
         }
         
         // Delete an entry
-        function deleteEntry(index) {
+        async function deleteEntry(index) {
+            if (!ensureBackupReady()) return;
+
             if (confirm(`Are you sure you want to delete entry ${index + 1}?`)) {
                 // Remove from entries array
                 entries.splice(index, 1);
@@ -484,6 +669,7 @@
                 updateSummary();
                 updateButtonStates();
                 updateStepIndicator();
+                const backupSaved = await saveBackup();
                 
                 // Reset editing if deleted entry was being edited
                 if (editingIndex === index) {
@@ -493,12 +679,19 @@
                     editingIndex--;
                 }
                 
-                showNotification(`Entry ${index + 1} deleted successfully`, 'success');
+                showNotification(
+                    backupSaved
+                        ? `Entry ${index + 1} deleted successfully`
+                        : `Entry ${index + 1} deleted locally, but Firebase backup failed.`,
+                    backupSaved ? "success" : "error"
+                );
             }
         }
         
         // Add or Update entry from window
-        function addEntryFromWindow() {
+        async function addEntryFromWindow() {
+            if (!ensureBackupReady()) return;
+
             // Validate total entries set
             if (totalEntries <= 0) {
                 showNotification("Please set the total number of entries first", "error");
@@ -561,6 +754,7 @@
                 na: persons.includes("Nazir") ? share : "-",
                 wa: persons.includes("Waseem") ? share : "-"
             };
+            const savedEntryNumber = editingIndex >= 0 ? editingIndex + 1 : currentEntry + 1;
             
             if (editingIndex >= 0) {
                 // Update existing entry
@@ -568,8 +762,6 @@
                 
                 // Update excelData
                 excelData[editingIndex + 1] = [entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na, entry.wa];
-                
-                showNotification(`Entry ${editingIndex + 1} updated successfully`, 'success');
                 
                 // Reset editing
                 editingIndex = -1;
@@ -590,7 +782,6 @@
                 // Update counters
                 currentEntry++;
                 
-                showNotification(`Entry ${currentEntry} added successfully`, 'success');
             }
             
             // Update UI
@@ -599,6 +790,13 @@
             updateSummary();
             updateButtonStates();
             updateStepIndicator();
+            const backupSaved = await saveBackup();
+            showNotification(
+                backupSaved
+                    ? `Entry ${savedEntryNumber} saved successfully`
+                    : "Entry saved on this device, but Firebase backup failed.",
+                backupSaved ? "success" : "error"
+            );
             
             // Clear form for next entry
             resetCurrentEntryWindow();
@@ -717,7 +915,9 @@
         }
         
         // Generate Excel with totals row
-        function generateExcel() {
+        async function generateExcel() {
+            if (!ensureBackupReady()) return;
+
             if (entries.length === 0) {
                 showNotification("No entries to export", "error");
                 return;
@@ -838,9 +1038,30 @@
             const fileName = `Loading_bill_created_by_yaseen_web_serial_${num}.xlsx`;
             
             // Save file
-            XLSX.writeFile(wb, fileName);
+            try {
+                XLSX.writeFile(wb, fileName);
+            } catch (error) {
+                showNotification(`Excel file could not be generated: ${error.message}`, "error");
+                return;
+            }
+
+            if (!await clearBackup()) {
+                return;
+            }
+
+            totalEntries = 0;
+            currentEntry = 0;
+            currentDate = null;
+            entries = [];
+            excelData = [excelData[0]];
+            updateStatusBar();
+            updateEntriesTable();
+            updateSummary();
+            updateDateDisplayWindow();
+            updateStepIndicator();
+            updateButtonStates();
             
-            showNotification(`Excel file "${fileName}" generated with totals row!`, 'success');
+            showNotification(`Excel file "${fileName}" generated. Firebase backup cleared and billing data reset.`, 'success');
             
             // Mark step 4 as completed
             document.getElementById('step4').classList.add('completed');
@@ -898,4 +1119,3 @@
             }, 4000);
 
         }
-
