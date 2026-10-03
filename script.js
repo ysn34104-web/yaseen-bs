@@ -8,7 +8,7 @@
         let currentEntry = 0;
         let entries = [];
         let excelData = [
-            ["Date", "Drums", "Bags", "Total (Rs)", "A.Ditta", "A.Yar", "Saleem", "Nazir"]
+            ["Date", "Drums", "Bags", "Total (Rs)", "A.Ditta", "A.Yar", "Saleem", "Nazir", "Waseem"]
         ];
         
         // Variable to track entry being edited
@@ -31,61 +31,57 @@
         
         // Setup auto-focus functionality
         function setupAutoFocus() {
-            // For Step 1
-            const step1Input = document.getElementById('totalEntriesInput');
-            step1Input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    setEntries();
-                }
-            });
-            
-            // For Step 2
-            const dayInput = document.getElementById('dayInput');
-            const monthInput = document.getElementById('monthInput');
-            const yearInput = document.getElementById('yearInput');
-            
-            dayInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    monthInput.focus();
-                }
-            });
-            
-            monthInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    yearInput.focus();
-                }
-            });
-            
-            yearInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    saveDate();
-                }
-            });
-            
-            // For Step 3 Window
             const drumsInputWindow = document.getElementById('drumsInputWindow');
             const bagsInputWindow = document.getElementById('bagsInputWindow');
-            
-            drumsInputWindow.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    bagsInputWindow.focus();
-                }
-            });
-            
+
             bagsInputWindow.addEventListener('input', updateCalculationWindow);
             drumsInputWindow.addEventListener('input', updateCalculationWindow);
-            
-            // Calculate on Enter in bags input
-            bagsInputWindow.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    addEntryFromWindow();
+
+            const enterActions = {
+                totalEntriesInput: setEntries,
+                yearInput: saveDate,
+                customDayInput: useCustomDate,
+                bagsInputWindow: addEntryFromWindow,
+                waCheckboxWindow: addEntryFromWindow
+            };
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key !== 'Enter' || !(event.target instanceof HTMLElement)) {
+                    return;
+                }
+
+                const currentField = event.target;
+                if (!currentField.matches('input, textarea, select') ||
+                    currentField.matches('input[type="radio"], input[type="button"], input[type="submit"], input[type="reset"]') ||
+                    currentField.disabled || currentField.readOnly) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                const activeWindow = document.querySelector('.step-window.active');
+                const scope = activeWindow || document;
+                const fields = Array.from(scope.querySelectorAll('input, textarea, select')).filter(field =>
+                    !field.disabled &&
+                    !field.readOnly &&
+                    !field.matches('input[type="radio"], input[type="button"], input[type="submit"], input[type="reset"]') &&
+                    field.getClientRects().length > 0
+                );
+                const currentIndex = fields.indexOf(currentField);
+
+                if (enterActions[currentField.id]) {
+                    enterActions[currentField.id]();
+                } else if (currentIndex >= 0 && currentIndex < fields.length - 1) {
+                    fields[currentIndex + 1].focus();
                 }
             });
         }
         
         // Open window
         function openWindow(windowId) {
-            document.getElementById('windowOverlay').classList.add('active');
+            const isStep3Screen = windowId === 'step3Window';
+            document.getElementById('windowOverlay').classList.toggle('active', !isStep3Screen);
+            document.body.classList.toggle('screen-open', isStep3Screen);
             document.getElementById(windowId).classList.add('active');
             
             // Focus on first input
@@ -104,6 +100,7 @@
         // Close window
         function closeWindow(windowId) {
             document.getElementById('windowOverlay').classList.remove('active');
+            document.body.classList.remove('screen-open');
             document.getElementById(windowId).classList.remove('active');
             
             // Reset form if closing step 3 window
@@ -299,22 +296,6 @@
             }
         }
         
-        // Use same date in window
-        function useSameDate() {
-            if (!currentDate) {
-                showNotification("Please set date first", "error");
-                return;
-            }
-            
-            updateDateDisplayWindow();
-            showNotification(`Using same date`, 'info');
-            
-            // Focus on drums input
-            setTimeout(() => {
-                document.getElementById('drumsInputWindow').focus();
-            }, 100);
-        }
-        
         // Use next date in window
         function useNextDate() {
             if (!currentDate) {
@@ -403,6 +384,7 @@
             document.getElementById('ayCheckboxWindow').checked = true;
             document.getElementById('saCheckboxWindow').checked = true;
             document.getElementById('naCheckboxWindow').checked = true;
+            document.getElementById('waCheckboxWindow').checked = true;
         }
         
         // Clear all persons in window
@@ -411,6 +393,14 @@
             document.getElementById('ayCheckboxWindow').checked = false;
             document.getElementById('saCheckboxWindow').checked = false;
             document.getElementById('naCheckboxWindow').checked = false;
+            document.getElementById('waCheckboxWindow').checked = false;
+        }
+
+        function selectThreePersonsWindow() {
+            clearAllPersonsWindow();
+            document.getElementById('saCheckboxWindow').checked = true;
+            document.getElementById('naCheckboxWindow').checked = true;
+            document.getElementById('waCheckboxWindow').checked = true;
         }
         
         // Reset current entry form in window
@@ -419,7 +409,7 @@
             document.getElementById('bagsInputWindow').value = '';
             document.getElementById('customDayInput').value = '';
             document.getElementById('totalCalculationWindow').style.display = 'none';
-            selectAllPersonsWindow();
+            clearAllPersonsWindow();
             editingIndex = -1;
             updateButtonStates();
             showNotification("Form reset for new entry", "info");
@@ -465,6 +455,7 @@
             document.getElementById('ayCheckboxWindow').checked = entry.persons.includes("A.Yar");
             document.getElementById('saCheckboxWindow').checked = entry.persons.includes("Saleem");
             document.getElementById('naCheckboxWindow').checked = entry.persons.includes("Nazir");
+            document.getElementById('waCheckboxWindow').checked = entry.persons.includes("Waseem");
             
             // Update calculation display
             updateCalculationWindow();
@@ -481,7 +472,7 @@
                 // Rebuild excelData
                 excelData = [excelData[0]]; // Keep header
                 entries.forEach(entry => {
-                    excelData.push([entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na]);
+                    excelData.push([entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na, entry.wa]);
                 });
                 
                 // Update counters
@@ -540,6 +531,7 @@
             if (document.getElementById('ayCheckboxWindow').checked) persons.push("A.Yar");
             if (document.getElementById('saCheckboxWindow').checked) persons.push("Saleem");
             if (document.getElementById('naCheckboxWindow').checked) persons.push("Nazir");
+            if (document.getElementById('waCheckboxWindow').checked) persons.push("Waseem");
             
             if (persons.length === 0) {
                 showNotification("Please select at least one person", "error");
@@ -566,7 +558,8 @@
                 ad: persons.includes("A.Ditta") ? share : "-",
                 ay: persons.includes("A.Yar") ? share : "-",
                 sa: persons.includes("Saleem") ? share : "-",
-                na: persons.includes("Nazir") ? share : "-"
+                na: persons.includes("Nazir") ? share : "-",
+                wa: persons.includes("Waseem") ? share : "-"
             };
             
             if (editingIndex >= 0) {
@@ -574,7 +567,7 @@
                 entries[editingIndex] = entry;
                 
                 // Update excelData
-                excelData[editingIndex + 1] = [entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na];
+                excelData[editingIndex + 1] = [entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na, entry.wa];
                 
                 showNotification(`Entry ${editingIndex + 1} updated successfully`, 'success');
                 
@@ -592,7 +585,7 @@
                 entries.push(entry);
                 
                 // Add to Excel data
-                excelData.push([entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na]);
+                excelData.push([entry.date, entry.drums, entry.bags, entry.total, entry.ad, entry.ay, entry.sa, entry.na, entry.wa]);
                 
                 // Update counters
                 currentEntry++;
@@ -697,7 +690,8 @@
             entries.forEach(entry => {
                 totalDrums += entry.drums;
                 totalBags += entry.bags;
-                totalAmount += entry.total;
+                totalAmount    
+                += entry.total;
             });
             
             // Update summary content
@@ -747,6 +741,7 @@
             let totalAY = 0;
             let totalSA = 0;
             let totalNA = 0;
+            let totalWA = 0;
             
             entries.forEach(entry => {
                 totalDrums += entry.drums;
@@ -758,11 +753,12 @@
                 if (entry.ay !== "-") totalAY += parseFloat(entry.ay);
                 if (entry.sa !== "-") totalSA += parseFloat(entry.sa);
                 if (entry.na !== "-") totalNA += parseFloat(entry.na);
+                if (entry.wa !== "-") totalWA += parseFloat(entry.wa);
             });
             
             // Prepare Excel data with totals row at the end
             const excelDataWithTotals = [
-                ["Date", "Drums", "Bags", "Total (Rs)", "A.Ditta", "A.Yar", "Saleem", "Nazir"]
+                ["Date", "Drums", "Bags", "Total (Rs)", "A.Ditta", "A.Yar", "Saleem", "Nazir", "Waseem"]
             ];
             
             // Add all entries
@@ -775,12 +771,13 @@
                     entry.ad,
                     entry.ay,
                     entry.sa,
-                    entry.na
+                    entry.na,
+                    entry.wa
                 ]);
             });
             
             // Add empty row for separation
-            excelDataWithTotals.push(["", "", "", "", "", "", "", ""]);
+            excelDataWithTotals.push(["", "", "", "", "", "", "", "", ""]);
             
             // Add totals row with proper formatting
             excelDataWithTotals.push([
@@ -791,7 +788,8 @@
                 totalAD.toFixed(2),
                 totalAY.toFixed(2),
                 totalSA.toFixed(2),
-                totalNA.toFixed(2)
+                totalNA.toFixed(2),
+                totalWA.toFixed(2)
             ]);
             
             // Create worksheet
@@ -827,7 +825,8 @@
                 {wch: 12}, // A.Ditta
                 {wch: 12}, // A.Yar
                 {wch: 12}, // Saleem
-                {wch: 12}  // Nazir
+                {wch: 12}, // Nazir
+                {wch: 12}  // Waseem
             ];
             ws['!cols'] = colWidths;
             
@@ -899,3 +898,4 @@
             }, 4000);
 
         }
+
